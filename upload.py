@@ -162,8 +162,8 @@ def main():
     
     if src_folder_name == None:
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
-#    upload_file(service, src_folder_name, d_folder_id)
-    print(d_folder_id)
+    upload_file(service, src_folder_name, d_folder_id)
+#    print(d_folder_id)
 
 if __name__ == "__main__":
     main()
