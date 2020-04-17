@@ -7,3 +7,6 @@ This is new version script upload file to google drive (compatible with http2lib
 * Destination Folder: the destination folder on google drive that you wanted to upload to
 * Parent Folder: Just incase you upload wrong folder, define parent folder of destination folder.
 * That's all, i'll update later
+
+#### Base on project: https://gist.github.com/jmlrt/f524e1a45205a0b9f169eb713a223330
+* That project use PyDrive that no longer work with current API version, i have to rewrite it and add more tweak.
