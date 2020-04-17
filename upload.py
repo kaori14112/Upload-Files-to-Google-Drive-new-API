@@ -164,7 +164,7 @@ def main():
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
     else:
        upload_file(service, src_folder_name, d_folder_id)
-    print('Complete uploaded to folder id: ' + d_folder_id)
+       print('Complete uploaded to folder id: ' + d_folder_id)
 
 if __name__ == "__main__":
     main()
