@@ -84,7 +84,7 @@ def authentication():
             creds.refresh(Request())
        else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                   '/home/backup/14112/credentials.json', SCOPES)
+                   'credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
        # Save the credentials for the next run
        with open('token.pickle', 'wb') as token:
@@ -258,6 +258,7 @@ def main():
        exit()
     else:
         chkPath = checkPath(src_folder_name)    
+        
         if chkPath == True:
            print ('File detected, uploading...')
            upload_file(service, src_folder_name, d_folder_id)
@@ -267,5 +268,6 @@ def main():
             upload_folder(service, src_folder_name, d_folder_id)
             print('Complete uploaded folder to drive folder id: ' + d_folder_id)
 
+            
 if __name__ == "__main__":
     main()
