@@ -1,6 +1,8 @@
 from __future__ import print_function
 import pickle
 import os.path
+
+#Import google API libraries
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -35,6 +37,37 @@ def parse_args():
     return parser.parse_args()
 
 
+def listToString(s):  
+    
+    # initialize an empty string 
+    str1 = ""  
+    
+    # traverse in the string   
+    for ele in s:  
+        str1 += ele   
+    
+    # return string   
+    return str1
+
+
+def checkDir(dir):
+    """
+                Checking if given path is File or not
+        """
+
+    isFile = os.path.isfile(dir)
+    return isFile
+
+
+def checkPathex(path):
+    """
+                Checking if given path is exist or not
+        """
+
+    isExist = os.path.exists(path)
+    return isExist
+
+
 def authentication():
     """
                 Authenticate to Google API
@@ -51,7 +84,7 @@ def authentication():
             creds.refresh(Request())
        else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                   'credentials.json', SCOPES)
+                   '/home/backup/14112/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
        # Save the credentials for the next run
        with open('token.pickle', 'wb') as token:
@@ -60,10 +93,24 @@ def authentication():
     return creds
 
 
+def checkPath(path):
+    isEx = checkPathex(path)
+
+    # Print error if source folder doesn't exist
+    if isEx == False:
+       print(path + 'File or Directory does not exist!')
+       exit()
+    else:
+       # Determine if Path is File or Folder
+       isFile = checkDir(path)
+       return isFile
+
+
 def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
     """
                 Check if destination folder exists and return it's ID
         """
+
     page_token = None
     if parent_folder_id == 'None':
        print ('Subfolder not found')
@@ -93,10 +140,12 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
                    if file['name'] == d_folder:
                       if flag == 'p':
                          print ("Parent Folder: " + file['name'] + " : " + file['id'])
+                         #Comment 'break' and 'return' bellow if you want to print all folder as same name
                          return file['id']
                          break
                       else:
                          print ("Destination Folder : " + file['name'] + " : " + file['id'])
+                         #Comment 'break' and 'return' bellow if you want to print all folder as same name
                          return file['id']
                          break
 
@@ -106,8 +155,51 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
                   break
 #               return file['id']
 #               break
+
     
 def upload_file(service, src_folder_name, folder_id):
+    """
+                Upload files in the local folder to Google Drive
+        """
+
+    mime = magic.Magic(mime=True)        
+    
+    # Auto-iterate through all files in the folder.
+    file1 = os.path.basename(src_folder_name)
+    print (file1)
+    # Check the file's size
+    statinfo = stat(file1)
+
+    if statinfo.st_size > 0:
+       print('uploading ' + file1)
+
+       #get mime types
+       mine_type = mime.from_file(src_folder_name)
+
+       # Upload file to folder.
+       media = MediaFileUpload(
+               src_folder_name,
+               mimetype=mine_type,
+               resumable=True
+       )
+
+       request = service.files().create(
+                 media_body=media,
+                 body={'name': file1, 'parents': [folder_id]}
+       )
+
+       response = None
+
+       while response is None:
+             status, response = request.next_chunk()
+
+             if status:
+                print("Uploaded %d%%." % int(status.progress() * 100))
+
+       print("Upload Complete!")
+
+
+def upload_folder(service, src_folder_name, folder_id):
     """
                 Upload files in the local folder to Google Drive
         """
@@ -128,7 +220,7 @@ def upload_file(service, src_folder_name, folder_id):
            #get mime types
            mine_type = mime.from_file(src_folder_name + file1) # 'application/pdf'
 
-           # Upload file to folder.
+           # Upload files to folder.
            media = MediaFileUpload(
                    src_folder_name + file1,
                    mimetype=mine_type,
@@ -149,6 +241,7 @@ def upload_file(service, src_folder_name, folder_id):
            print("Upload Complete!")
 
 
+
 def main():
 
     args = parse_args()
@@ -162,9 +255,17 @@ def main():
     
     if src_folder_name == None:
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
+       exit()
     else:
-       upload_file(service, src_folder_name, d_folder_id)
-       print('Complete uploaded to folder id: ' + d_folder_id)
+        chkPath = checkPath(src_folder_name)    
+        if chkPath == True:
+           print ('File detected, uploading...')
+           upload_file(service, src_folder_name, d_folder_id)
+           print('Complete uploaded file to drive folder id: ' + d_folder_id)
+        else:
+            print ('Folder detected, uploading...')
+            upload_folder(service, src_folder_name, d_folder_id)
+            print('Complete uploaded folder to drive folder id: ' + d_folder_id)
 
 if __name__ == "__main__":
     main()
