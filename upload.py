@@ -84,7 +84,7 @@ def authentication():
             creds.refresh(Request())
        else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                   'credentials.json', SCOPES)
+                   '/home/backup/14112/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
        # Save the credentials for the next run
        with open('token.pickle', 'wb') as token:
@@ -112,16 +112,17 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
         """
 
     page_token = None
-    if parent_folder_id == 'None':
-       print ('Subfolder not found')
-       return None
-    else: 
-         while True:
+    
+    while True:
                try:
                    response = drive_service.files().list(q="mimeType='application/vnd.google-apps.folder' and '" + parent_folder_id +"' in parents",
                                                   spaces='drive',
                                                   fields='nextPageToken, files(id, name)',
                                                   pageToken=page_token).execute()
+                   #if response is None and flag == 'p':
+                   #   print ('Parent folder not found!')
+                   #   return None
+                      
                except googleapiclient.errors.HttpError as err:
                       #Parse error message
                       message = ast.literal_eval(err.content)['error']['message']
@@ -135,7 +136,7 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
 
                for file in response.get('files', []):
                # Process change
-#                   print(file)
+               #    print(file)
 
                    if file['name'] == d_folder:
                       if flag == 'p':
@@ -251,14 +252,20 @@ def main():
     creds = authentication()
     service = build('drive', 'v3', credentials=creds)
     p_folder_id = get_folder_id(service, 'root', p_folder, 'p')
+    
+    if p_folder_id is None:
+       print ('Parent folder not found!')
+       exit()
     d_folder_id = get_folder_id(service, p_folder_id, d_folder, 'c')
     
+    if d_folder_id is None:
+       print ('Destination folder not found!')
+       exit()
     if src_folder_name == None:
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
        exit()
     else:
         chkPath = checkPath(src_folder_name)    
-        
         if chkPath == True:
            print ('File detected, uploading...')
            upload_file(service, src_folder_name, d_folder_id)
@@ -268,6 +275,5 @@ def main():
             upload_folder(service, src_folder_name, d_folder_id)
             print('Complete uploaded folder to drive folder id: ' + d_folder_id)
 
-            
 if __name__ == "__main__":
     main()
