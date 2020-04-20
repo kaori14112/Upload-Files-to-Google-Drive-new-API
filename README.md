@@ -5,7 +5,7 @@ This is new version script upload file to google drive (compatible with http2lib
 #### Just typing this command to upload files: python3 upload.py -s /local/directory/ -d Destination_Folder -p Parent_Folder
 * Local directory: the folder on your local machine that you want to upload file from
 * Destination Folder: the destination folder on google drive that you wanted to upload to
-* Parent Folder: Just incase you upload wrong folder, define parent folder of destination folder.
+* Parent Folder: Just incase you upload wrong folder, define parent folder of destination folder. (you can upload 1 file or folder just need to fill -s with full path: ex: -p /root/backup/abc.tar.gz to upload file named abc.tar.gz, -p /root/backup/ if you want to upload all files in that folders)
 * That's all, i'll update later
 
 #### Base on project: https://gist.github.com/jmlrt/f524e1a45205a0b9f169eb713a223330
