@@ -13,8 +13,11 @@ import googleapiclient.errors
 from argparse import ArgumentParser
 from os import chdir, listdir, stat
 from sys import exit
+from datetime import datetime
+import sys
 import ast
 import magic
+
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -167,12 +170,13 @@ def upload_file(service, src_folder_name, folder_id):
     
     # Auto-iterate through all files in the folder.
     file1 = os.path.basename(src_folder_name)
-    print (file1)
+    print (src_folder_name)
     # Check the file's size
-    statinfo = stat(file1)
+    statinfo = stat(src_folder_name)
 
     if statinfo.st_size > 0:
-       print('uploading ' + file1)
+       
+       print('uploading ' + file1 + ' ...')
 
        #get mime types
        mine_type = mime.from_file(src_folder_name)
@@ -195,7 +199,7 @@ def upload_file(service, src_folder_name, folder_id):
              status, response = request.next_chunk()
 
              if status:
-                print("Uploaded %d%%." % int(status.progress() * 100))
+                print("Uploading... %d%%." % int(status.progress() * 100))
 
        print("Upload Complete!")
 
@@ -244,11 +248,37 @@ def upload_folder(service, src_folder_name, folder_id):
 
 
 def main():
-
+    
+    #Variables
     args = parse_args()
     src_folder_name = args.source
     d_folder = args.destination
-    p_folder = args.parent
+    p_folder = args.parent  
+    
+    #Rewrite output (added time stamps)
+    old_out = sys.stdout
+    class St_ampe_dOut:
+          """Stamped stdout."""
+
+          nl = True
+
+          def write(self, x):
+              """Write function overloaded."""
+              if x == '\n':
+                 old_out.write(x)
+                 self.nl = True
+              elif self.nl:
+                 old_out.write('%s> %s' % (str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S")), x))
+                 self.nl = False
+              else:
+                 old_out.write(x)
+
+          def flush(self):
+              pass
+  
+    sys.stdout = St_ampe_dOut()    
+ 
+    #Functions
     creds = authentication()
     service = build('drive', 'v3', credentials=creds)
     p_folder_id = get_folder_id(service, 'root', p_folder, 'p')
@@ -261,6 +291,7 @@ def main():
     if d_folder_id is None:
        print ('Destination folder not found!')
        exit()
+       
     if src_folder_name == None:
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
        exit()
@@ -271,9 +302,10 @@ def main():
            upload_file(service, src_folder_name, d_folder_id)
            print('Complete uploaded file to drive folder id: ' + d_folder_id)
         else:
-            print ('Folder detected, uploading...')
-            upload_folder(service, src_folder_name, d_folder_id)
-            print('Complete uploaded folder to drive folder id: ' + d_folder_id)
+           print ('Folder detected, uploading...')
+           upload_folder(service, src_folder_name, d_folder_id)
+           print('Complete uploaded folder to drive folder id: ' + d_folder_id)
+
 
 if __name__ == "__main__":
     main()
