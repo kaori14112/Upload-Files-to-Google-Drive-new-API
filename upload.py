@@ -84,14 +84,14 @@ def authentication():
 
     if not creds or not creds.valid:
        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+          creds.refresh(Request())
        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                   '/home/backup/14112/credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+          flow = InstalledAppFlow.from_client_secrets_file(
+                 '/home/backup/14112/credentials.json', SCOPES)
+          creds = flow.run_local_server(port=0)
        # Save the credentials for the next run
        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
+          pickle.dump(creds, token)
 
     return creds
 
@@ -135,7 +135,7 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
                          exit(1)
                       # Exit with stacktrace in case of other error
                       else:
-                          raise
+                         raise
 
                for file in response.get('files', []):
                # Process change
@@ -176,7 +176,7 @@ def upload_file(service, src_folder_name, folder_id):
 
     if statinfo.st_size > 0:
        
-       print('uploading ' + file1 + ' ...')
+       print('Uploading ' + file1 + ' ...')
 
        #get mime types
        mine_type = mime.from_file(src_folder_name)
@@ -212,7 +212,7 @@ def upload_folder(service, src_folder_name, folder_id):
         chdir(src_folder_name)
         # Print error if source folder doesn't exist
     except OSError:
-           print(src_folder_name + 'is missing')
+        print(src_folder_name + 'is missing')
     # Auto-iterate through all files in the folder.
     mime = magic.Magic(mime=True)        
    
@@ -246,6 +246,19 @@ def upload_folder(service, src_folder_name, folder_id):
            print("Upload Complete!")
 
 
+def create_folder(service, p_folder_id, folder_name):
+    file_metadata = {
+          'name': folder_name,
+          'parents': [p_folder_id],
+          'mimeType': 'application/vnd.google-apps.folder'
+    }
+#    if p_folder_id:
+#       file_metadata['parents'] = [{'id': n_p_folder_id}]
+       
+    file = service.files().create(body=file_metadata,
+                                  fields='id').execute()
+    return file.get('id')
+
 
 def main():
     
@@ -268,7 +281,7 @@ def main():
                  old_out.write(x)
                  self.nl = True
               elif self.nl:
-                 old_out.write('%s> %s' % (str(datetime.now().strftime("%m/%d/%Y, %H:%M:%S")), x))
+                 old_out.write('%s> %s' % (str(datetime.now()), x))
                  self.nl = False
               else:
                  old_out.write(x)
@@ -286,25 +299,44 @@ def main():
     if p_folder_id is None:
        print ('Parent folder not found!')
        exit()
+       
     d_folder_id = get_folder_id(service, p_folder_id, d_folder, 'c')
     
     if d_folder_id is None:
        print ('Destination folder not found!')
-       exit()
+#       exit()
+       Join = input('Would you like to create new folder? Type yes or y proceed, no or n to cancel and exit.\n')
+       if Join.lower() == 'yes' or Join.lower() == 'y':
+          print('Creating folder...')
+          #exit()
+          n_folder = create_folder(service, p_folder_id, d_folder)
+          if n_folder is not None:
+             print('Folder created, here is id: ' + n_folder)
+             print('Uploading files...')
+             upload_file(service, src_folder_name ,n_folder)
+             exit()
+          else:
+             print('Something definitely wrong while creating folder... Exiting...')
+             exit()
+             
+       elif Join.lower() == 'no' or Join.lower() == 'n':
+          print("You choosed to not create folder, exiting...")
+       else:
+          print('No Answer Given, abort...')
        
     if src_folder_name == None:
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
        exit()
     else:
-        chkPath = checkPath(src_folder_name)    
-        if chkPath == True:
-           print ('File detected, uploading...')
-           upload_file(service, src_folder_name, d_folder_id)
-           print('Complete uploaded file to drive folder id: ' + d_folder_id)
-        else:
-           print ('Folder detected, uploading...')
-           upload_folder(service, src_folder_name, d_folder_id)
-           print('Complete uploaded folder to drive folder id: ' + d_folder_id)
+       chkPath = checkPath(src_folder_name)    
+       if chkPath == True:
+          print ('File detected, uploading...')
+          upload_file(service, src_folder_name, d_folder_id)
+          print('Complete uploaded file to drive folder id: ' + d_folder_id)
+       else:
+          print ('Folder detected, uploading...')
+          upload_folder(service, src_folder_name, d_folder_id)
+          print('Complete uploaded folder to drive folder id: ' + d_folder_id)
 
 
 if __name__ == "__main__":
