@@ -147,9 +147,13 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
                          #Comment 'break' and 'return' bellow if you want to print all folder as same name
                          return file['id']
                          break
-                      else:
+                      elif flag == 'c':
                          print ("Destination Folder : " + file['name'] + " : " + file['id'])
                          #Comment 'break' and 'return' bellow if you want to print all folder as same name
+                         return file['id']
+                         break
+                      else:
+#                         print('No flag defined get folderID function, returning folder ID...')
                          return file['id']
                          break
 
@@ -161,7 +165,7 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
 #               break
 
     
-def upload_file(service, src_folder_name, folder_id):
+def upload_file(service, file_dir, folder_id):
     """
                 Upload files in the local folder to Google Drive
         """
@@ -169,21 +173,23 @@ def upload_file(service, src_folder_name, folder_id):
     mime = magic.Magic(mime=True)        
     
     # Auto-iterate through all files in the folder.
-    file1 = os.path.basename(src_folder_name)
-    print (src_folder_name)
+    file1 = os.path.basename(file_dir)
+#    print (src_folder_name)
     # Check the file's size
-    statinfo = stat(src_folder_name)
+    statinfo = stat(file_dir)
 
     if statinfo.st_size > 0:
        
-       print('Uploading ' + file1 + ' ...')
+       print('uploading ' + file1 + '... ', end = '')
 
        #get mime types
-       mine_type = mime.from_file(src_folder_name)
+#       file_dir = os.path.normpath(str(file_dir)) + os.sep
+
+       mine_type = mime.from_file(file_dir)
 
        # Upload file to folder.
        media = MediaFileUpload(
-               src_folder_name,
+               file_dir,
                mimetype=mine_type,
                resumable=True
        )
@@ -199,51 +205,47 @@ def upload_file(service, src_folder_name, folder_id):
              status, response = request.next_chunk()
 
              if status:
-                print("Uploading... %d%%." % int(status.progress() * 100))
+                print("... %d%%." % int(status.progress() * 100), end = '...')
 
-       print("Upload Complete!")
+       print("Complete!")
 
 
-def upload_folder(service, src_folder_name, folder_id):
-    """
-                Upload files in the local folder to Google Drive
-        """
+def upload_folder(service, path, parent_folder_id):
     try:
-        chdir(src_folder_name)
+        chdir(path)
         # Print error if source folder doesn't exist
     except OSError:
-        print(src_folder_name + 'is missing')
-    # Auto-iterate through all files in the folder.
-    mime = magic.Magic(mime=True)        
-   
-    for file1 in listdir('.'):
-        # Check the file's size
-        statinfo = stat(file1)
-        if statinfo.st_size > 0:
-           print('uploading ' + file1)
+        print(path + ' is missing, exiting...')
+        return false
+    
+    arr = sort_dir(path)
+    for name in arr:
+        localpath = os.path.join(path, name)
+#        print(localpath)
+        
+        if os.path.isfile(localpath):
+           upload_file(service, localpath, parent_folder_id)
+        elif os.path.isdir(localpath):
+           print('\n')
+           print('\x1b[6;30;42m' + 'Moving to another Folder...' + '\x1b[0m')
+           FdID = get_folder_id(service, parent_folder_id, name, 'n')
+		       
+           if FdID is not None:
+              print('\x1b[6;30;42m' + 'Folder "' + name + '" already exist on Google Drive, uploading files to ' + name  + '...' + '\x1b[0m')
+              upload_folder(service, localpath, FdID)
+           else:
+              print('Folder "' + name + '" dont exist on Google Drive, creating...')
+              n_FdID = create_folder(service, parent_folder_id, name)
+    
+              if n_FdID is not None:
+                 print('Create Folder "' + name  + '" successfully, id: ' + n_FdID)
+                 print('\x1b[6;30;42m' + 'uploading files to: ' + name + '\x1b[0m')
+                 upload_folder(service, localpath, n_FdID)
+              else:
+                 print('Something definitely wrong while creating folder... Exiting...')
+                                             
+    print('All files in "' + path  + '" uploaded successfully!')
 
-           #get mime types
-           mine_type = mime.from_file(src_folder_name + file1) # 'application/pdf'
-
-           # Upload files to folder.
-           media = MediaFileUpload(
-                   src_folder_name + file1,
-                   mimetype=mine_type,
-                   resumable=True
-           )
-
-           request = service.files().create(
-                     media_body=media,
-                     body={'name': file1, 'parents': [folder_id]}
-           )
-
-           response = None
-           
-           while response is None:
-                 status, response = request.next_chunk()
-                 if status:
-                    print("Uploaded %d%%." % int(status.progress() * 100))
-           print("Upload Complete!")
 
 
 def create_folder(service, p_folder_id, folder_name):
@@ -260,19 +262,32 @@ def create_folder(service, p_folder_id, folder_name):
     return file.get('id')
 
 
+def isdir(path, x):
+    path = os.path.join(path, x)
+    return os.path.isdir(path)
+
+
+def sort_dir(path):
+    arr = os.listdir(path)
+    arr.sort(key=lambda x: (isdir(path, x), x))
+    return arr
+    
+
 def main():
     
     #Variables
     args = parse_args()
     src_folder_name = args.source
+    src_folder_name = os.path.normpath(str(src_folder_name)) + os.sep
+#    print(src_folder_name)
     d_folder = args.destination
     p_folder = args.parent  
     
     #Rewrite output (added time stamps)
     old_out = sys.stdout
+
     class St_ampe_dOut:
           """Stamped stdout."""
-
           nl = True
 
           def write(self, x):
@@ -311,9 +326,9 @@ def main():
           #exit()
           n_folder = create_folder(service, p_folder_id, d_folder)
           if n_folder is not None:
-             print('Folder created, here is id: ' + n_folder)
-             print('Uploading files...')
-             upload_file(service, src_folder_name ,n_folder)
+             print('Folder ' + d_folder  + ' created, here is id: ' + n_folder)
+             print('\x1b[6;30;42m' + 'uploading files to: ' + d_folder  + '...' + '\x1b[0m')
+             upload_folder(service, src_folder_name ,n_folder)
              exit()
           else:
              print('Something definitely wrong while creating folder... Exiting...')
@@ -328,15 +343,15 @@ def main():
        print ('No local directory defined, just print Parent and Destination folder if you pass those argurments')
        exit()
     else:
-       chkPath = checkPath(src_folder_name)    
+       chkPath = checkPath(src_folder_name)
        if chkPath == True:
-          print ('File detected, uploading...')
-          upload_file(service, src_folder_name, d_folder_id)
-          print('Complete uploaded file to drive folder id: ' + d_folder_id)
+          print ('\x1b[6;30;42m' + 'File detected, uploading: "' + d_folder + '" ...' + '\x1b[0m')
+          upload_file(service, src_folder_name , d_folder_id)
+          print('Complete uploaded file to drive folder: "' + d_folder + '" - FolderID: ' + d_folder_id)
        else:
-          print ('Folder detected, uploading...')
+          print ('\x1b[6;30;42m' + 'Folder detected, uploading to: "' + d_folder + '"' + '\x1b[0m')
           upload_folder(service, src_folder_name, d_folder_id)
-          print('Complete uploaded folder to drive folder id: ' + d_folder_id)
+          print('Complete uploaded folder to drive folder: "' + d_folder + '" - FolderID: ' + d_folder_id)
 
 
 if __name__ == "__main__":
