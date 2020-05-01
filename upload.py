@@ -65,12 +65,12 @@ def authentication():
     return creds
 
 
-def checkDir(dir):
+def checkDir(path):
     """
                 Checking if given path is File or not
         """
 
-    isFile = os.path.isfile(dir)
+    isFile = os.path.isfile(path)
     return isFile
 
 
@@ -97,14 +97,17 @@ def checkPath(path):
        
 def upload(service, path, folder_id, d_folder):
     chkPath = checkPath(path)
-    if checkPath is True:
+    if chkPath == True:
        print ('\x1b[6;30;42m' + 'File detected, uploading: "' + d_folder + '" ...' + '\x1b[0m')
        upload_file(service, path , folder_id)
        print('Complete uploaded file to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
     else:
        print ('\x1b[6;30;42m' + 'Folder detected, uploading to: "' + d_folder + '"' + '\x1b[0m')
-       upload_folder(service, path, folder_id)
-       print('Complete uploaded folder to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
+       results = upload_folder(service, path, folder_id)
+       if results == False:
+          print('Upload Failed.')
+       else:
+          print('Complete uploaded folder to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
 
 
 def isdir(path, x):
@@ -116,6 +119,10 @@ def sort_dir(path):
     arr = os.listdir(path)
     arr.sort(key=lambda x: (isdir(path, x), x))
     return arr
+    
+def generate_space(lenght):
+    space = ' '
+    return lenght*space
        
 
 def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
@@ -176,7 +183,7 @@ def upload_file(service, file_dir, folder_id):
 
     if statinfo.st_size > 0:
 
-       print('uploading ' + file1 + '... ', end = '')
+       print('uploading ' + file1 + '... ')
 
        #get mime types
        mine_type = mime.from_file(file_dir)
@@ -196,13 +203,22 @@ def upload_file(service, file_dir, folder_id):
        )
 
        response = None
-
+       
+       print(file1 + " ... 0%. ", end = "\r")
+       a = 0
        while response is None:
              status, response = request.next_chunk()
+             if a == 1:
+                if status:
+                   print(file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
+                   a = 0
+             elif a == 0:
+#                lenght = len(file1) + 11
+#                space = generate_space(lenght)
+                if status:
+                   print(str(datetime.now()) + "> " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r", flush = False)
 
-             if status:
-                print("... %d%%." % int(status.progress() * 100), end = '...')
-
+       print("")
        print("Complete!")
 
 
@@ -212,7 +228,7 @@ def upload_folder(service, path, parent_folder_id):
         chdir(path)
     except OSError:
         print(path + ' is missing, exiting...')
-        return false
+        return False
 
     arr = sort_dir(path)
 
@@ -261,12 +277,15 @@ def main():
 
     #Variables
     args = parse_args()
+    
     src_folder_name = args.source
     if src_folder_name == '.':
        src_folder_name = os.getcwd()
        
-    src_folder_name = os.path.normpath(str(src_folder_name)) + os.sep
-#    print(src_folder_name)
+    checkfilepath = checkPath(src_folder_name)
+    if checkfilepath != True:
+       src_folder_name = os.path.normpath(str(src_folder_name)) + os.sep
+
     d_folder = args.destination
     p_folder = args.parent
     d_folder_id = None
