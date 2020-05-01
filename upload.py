@@ -120,6 +120,7 @@ def sort_dir(path):
     arr.sort(key=lambda x: (isdir(path, x), x))
     return arr
     
+    
 def generate_space(lenght):
     space = ' '
     return lenght*space
@@ -183,7 +184,7 @@ def upload_file(service, file_dir, folder_id):
 
     if statinfo.st_size > 0:
 
-       print('uploading ' + file1 + '... ')
+#       print('uploading ' + file1 + '... ')
 
        #get mime types
        mine_type = mime.from_file(file_dir)
@@ -204,22 +205,23 @@ def upload_file(service, file_dir, folder_id):
 
        response = None
        
-       print(file1 + " ... 0%. ", end = "\r")
+       print("uploading " + file1 + " ... 0%. ", end = "\r")
        a = 0
        while response is None:
              status, response = request.next_chunk()
              if a == 1:
                 if status:
-                   print(file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
+                   print("uploading " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
                    a = 0
              elif a == 0:
 #                lenght = len(file1) + 11
 #                space = generate_space(lenght)
                 if status:
-                   print(str(datetime.now()) + "> " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r", flush = False)
+                   print(str(datetime.now()) + "> " + "uploading " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
 
+       print(str(datetime.now()) + "> " + "uploading " + file1 + " ... 100%. ", end = "\r", flush=True)
        print("")
-       print("Complete!")
+#       print("Complete!")
 
 
 def upload_folder(service, path, parent_folder_id):
@@ -240,7 +242,7 @@ def upload_folder(service, path, parent_folder_id):
            upload_file(service, localpath, parent_folder_id)
         elif os.path.isdir(localpath):
            print('\n')
-           print('\x1b[6;30;42m' + 'Moving to another Folder...' + '\x1b[0m')
+           print('\x1b[6;30;42m' + 'Processing Directory: ' + localpath + '\x1b[0m')
            FdID = get_folder_id(service, parent_folder_id, name, 'n')
            if FdID is not None:
               print('\x1b[6;30;42m' + 'Folder "' + name + '" already exist on Google Drive, uploading files to ' + name  + '...' + '\x1b[0m')
@@ -251,7 +253,7 @@ def upload_folder(service, path, parent_folder_id):
 
               if n_FdID is not None:
                  print('Create Folder "' + name  + '" successfully, id: ' + n_FdID)
-                 print('\x1b[6;30;42m' + 'uploading files to: ' + name + '\x1b[0m')
+                 print('uploading files to: ' + '\x1b[6;30;42m' + name + '\x1b[0m')
                  upload_folder(service, localpath, n_FdID)
               else:
                  print('Something definitely wrong while creating folder... Exiting...')
