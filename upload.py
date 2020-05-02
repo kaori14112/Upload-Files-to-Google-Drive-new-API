@@ -238,21 +238,27 @@ def upload_folder(service, path, parent_folder_id):
     if not os.listdir(path):
         print('Directory is empty, moving to next folder...')
         return False
-
+    
+    flag = None
     arr = sort_dir(path)
 
     for name in arr:
         localpath = os.path.join(path, name)
 #        print(localpath)
-
+        
         if os.path.isfile(localpath):
             upload_file(service, localpath, parent_folder_id)
+            flag = 'File'
         elif os.path.isdir(localpath):
             print('\n')
             print('Processing Directory: ' + '\x1b[6;30;42m' + localpath + '\x1b[0m')
+            
+            if flag == 'File':
+                print('uploading files to: ' + '\x1b[6;30;42m' + name  + '...' + '\x1b[0m')
+                
             FdID = get_folder_id(service, parent_folder_id, name, 'n')
             if FdID is not None:
-                print('\x1b[6;30;42m' + 'Folder "' + name + '" already exist on Google Drive, uploading files to ' + name  + '...' + '\x1b[0m')
+                print('Folder "' + name + '" already exist on Google Drive, checking files on ' + '\x1b[6;30;42m' + name  + '...' + '\x1b[0m')
                 upload_folder(service, localpath, FdID)
             else:
                 print('Folder "' + name + '" dont exist on Google Drive, creating...')
@@ -260,7 +266,6 @@ def upload_folder(service, path, parent_folder_id):
 
                 if n_FdID is not None:
                     print('Create Folder "' + name  + '" successfully, id: ' + n_FdID)
-                    print('uploading files to: ' + '\x1b[6;30;42m' + name + '\x1b[0m')
                     upload_folder(service, localpath, n_FdID)
                 else:
                     print('Something definitely wrong while creating folder... Exiting...')
@@ -358,7 +363,6 @@ def main():
             n_folder_id = create_folder(service, p_folder_id, d_folder)
             if n_folder_id != None:
                 print('Folder ' + d_folder  + ' created, here is id: ' + n_folder_id)
-                print('\x1b[6;30;42m' + 'uploading files to: ' + d_folder  + '...' + '\x1b[0m')
                 upload(service, src_folder_name, n_folder_id, d_folder)
                 exit()
             else:
