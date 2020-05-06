@@ -29,5 +29,5 @@ This is new version script upload file to google drive (compatible with http2lib
  
 #### Base on project: https://gist.github.com/jmlrt/f524e1a45205a0b9f169eb713a223330
  
-That project use PyDrive that no longer work with current API version, i have to rewrite it and add more tweak.
+That project use PyDrive library that no longer work with current API version, i have to rewrite it and add more tweak.
  
