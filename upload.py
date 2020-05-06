@@ -100,11 +100,11 @@ def upload(service, path, folder_id, d_folder):
     chkPath = checkPath(path)
     
     if chkPath == True:
-        print ('\x1b[6;30;42m' + 'File detected, uploading: "' + d_folder + '" ...' + '\x1b[0m')
+        print ('Uploading file from ' + path + ' to: ' + '\x1b[6;30;42m' + '"' + d_folder + '" ...' + '\x1b[0m')
         upload_file(service, path , folder_id)
         print('Complete uploaded file to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
     else:
-        print ('\x1b[6;30;42m' + 'Folder detected, uploading to: "' + d_folder + '"' + '\x1b[0m')
+        print ('Uploading files from ' + path + ' to: ' + '\x1b[6;30;42m' + '"' + d_folder + '" ...' + '\x1b[0m')
         results = upload_folder(service, path, folder_id)
         
         if results == False:
