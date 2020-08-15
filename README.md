@@ -2,7 +2,11 @@
 This is new version script upload file to google drive (compatible with http2lib 0.17.3 / google-api-python-client 1.8.2 - newest currently)
 ## How to use?
 #### Install requirements libs for python: pip3 install -r .requirements --user
- 
+
+#### For windows, sometime you'll get "failed to find libmagic. Check your installation", try this: 
+- pip3 uninstall python-magic
+- pip3 install python-magic-bin==0.4.14
+
 #### Enable google drive API and get credential json file: https://developers.google.com/drive/api/v3/quickstart/python
  
 #### Put json file on a same folder at script
