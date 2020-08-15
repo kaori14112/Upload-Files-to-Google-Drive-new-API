@@ -3,10 +3,6 @@ This is new version script upload file to google drive (compatible with http2lib
 ## How to use?
 #### Install requirements libs for python: pip3 install -r .requirements --user
 
-#### For windows, sometime you'll get "failed to find libmagic. Check your installation", try this: 
-- pip3 uninstall python-magic
-- pip3 install python-magic-bin==0.4.14
-
 #### Enable google drive API and get credential json file: https://developers.google.com/drive/api/v3/quickstart/python
  
 #### Put json file on a same folder at script
@@ -28,6 +24,10 @@ This is new version script upload file to google drive (compatible with http2lib
 - If you not define parent and destination folder, default it will upload to root directory on GGDR, ex: **python3 upload.py -s /home/test/**
  
 - If you want to upload single file? Simply just type full path to that file, ex: **python3 -s /home/test/abc.tar.gz -d abc -p parent_abc**
+
+#### For windows, sometime you'll get "failed to find libmagic. Check your installation", try this: 
+- pip3 uninstall python-magic
+- pip3 install python-magic-bin==0.4.14
  
 * Please report if you got problem, thank you.
  
