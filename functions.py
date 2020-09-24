@@ -58,7 +58,9 @@ def authentication():
             checkPath('credentials.json')
             flow = InstalledAppFlow.from_client_secrets_file(
                    'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+            #EDIT below to change authentication method, i prefered run on Console cause i'm using linux server without UI
+            #creds = flow.run_local_server(port=0)
+            creds = flow.run_console()
         # Save the credentials for the next run
         with open('token.pickle', 'wb') as token:
             pickle.dump(creds, token)
