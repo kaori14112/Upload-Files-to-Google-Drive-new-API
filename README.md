@@ -29,7 +29,7 @@ This is new version script upload file to google drive (compatible with http2lib
 - pip3 uninstall python-magic
 - pip3 install python-magic-bin==0.4.14
  
-** Please report if you got problem, thank you.
+* Please report if you got problem, thank you.
  
 #### Base on project: https://gist.github.com/jmlrt/f524e1a45205a0b9f169eb713a223330
  
