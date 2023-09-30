@@ -17,6 +17,12 @@ from datetime import datetime
 import sys
 import ast
 import magic
+import hashlib
+import threading
+
+# Global list to store file information for upload
+upload_list = []
+
 
 
 # If modifying these scopes, delete the file token.pickle.
@@ -38,6 +44,28 @@ def parse_args():
                                                   help='Parent Folder in Google Drive')
 
     return parser.parse_args()
+    
+def logging(log, level=0):
+    curr_time = datetime.now().strftime("[%Y-%m-%d %H:%M:%S] ")
+    if level == 0:
+        print(curr_time + "[INFO] " + log)
+    elif level == 1:
+        print(curr_time + "[WARN] " + log)
+    elif level == 2:
+        print(curr_time + "[CRIT] " + log)
+
+
+def convert_string(str):
+#    for char in string.punctuation:
+#        str = str.replace(char, '_')
+    for char in str:
+        if char in list_char:
+            str = str.replace(char,"_")
+        if char == "'":
+            str = str.replace(char,";")
+        if char == '"':
+            str = str.replace(char,"'")
+    return str
 
 
 def authentication():
@@ -66,6 +94,59 @@ def authentication():
             pickle.dump(creds, token)
 
     return creds
+    
+
+def humanbytes(B):
+   'Return the given bytes as a human friendly KB, MB, GB, or TB string'
+   B = float(B)
+   KB = float(1024)
+   MB = float(KB ** 2) # 1,048,576
+   GB = float(KB ** 3) # 1,073,741,824
+   TB = float(KB ** 4) # 1,099,511,627,776
+
+   if B < KB:
+      return '{0} {1}'.format(B,'Bytes' if 0 == B > 1 else 'Byte')
+   elif KB <= B < MB:
+      return '{0:.2f} KB'.format(B/KB)
+   elif MB <= B < GB:
+      return '{0:.2f} MB'.format(B/MB)
+   elif GB <= B < TB:
+      return '{0:.2f} GB'.format(B/GB)
+   elif TB <= B:
+      return '{0:.2f} TB'.format(B/TB)
+      
+      
+def convert_size_to_bytes(size_str):
+    # Split the string into parts (e.g., "0.0" and "Byte")
+    parts = size_str.split()
+    
+    # Check if the parts contain a valid number and unit
+    if len(parts) != 2 or not parts[0].replace('.', '', 1).isdigit():
+        raise ValueError("Invalid file size format")
+    
+    # Extract the numerical part and convert it to a float
+    size_num = float(parts[0])
+    
+    # Define a dictionary to map units to bytes
+    size_units = {
+        "Byte": 1,
+        "KB": 1024,
+        "MB": 1024**2,
+        "GB": 1024**3,
+        "TB": 1024**4,
+        "PB": 1024**5,
+        "EB": 1024**6,
+        "ZB": 1024**7,
+        "YB": 1024**8
+    }
+    
+    # Get the unit and convert the size to bytes
+    size_unit = parts[1]
+    if size_unit in size_units:
+        size_in_bytes = int(size_num * size_units[size_unit])
+        return size_in_bytes
+    else:
+        raise ValueError("Invalid file size unit")
 
 
 def checkDir(path):
@@ -91,29 +172,45 @@ def checkPath(path):
 
     # Print error if source folder doesn't exist
     if isEx == False:
-        print('\x1b[0;31;43m' + path + ' does not exist!' + '\x1b[0m')
+        logging('%s does not exist!' % path)
         exit()
     else:
         # Determine if Path is File or Folder
         isFile = checkDir(path)
         return isFile
+        
+        
+def checkmd5(file_path):
+    # Calculate the MD5 checksum of the file
+    logging("Calculating md5 of: %s" % file_path)
+    md5_hash = hashlib.md5()
+    if (os.path.isfile(file_path)):
+        with open(file_path, "rb") as file:
+            # Read the file in small chunks to save memory
+            for chunk in iter(lambda: file.read(4096), b""):
+                md5_hash.update(chunk)
+            
+        return md5_hash.hexdigest()
+    else:
+        return "hash_not_found"
+
 
 def upload(service, path, folder_id, d_folder):
 
     chkPath = checkPath(path)
 
-    if chkPath == True:
-        print ('Uploading file from ' + path + ' to: ' + '\x1b[6;30;42m' + '"' + d_folder + '" ...' + '\x1b[0m')
+    if chkPath == True: #file
+        logging('Uploading file from %s to: %s ...' % (path, d_folder))
         upload_file(service, path , folder_id)
-        print('Complete uploaded file to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
-    else:
-        print ('Uploading files from ' + path + ' to: ' + '\x1b[6;30;42m' + '"' + d_folder + '" ...' + '\x1b[0m')
+        logging('Complete uploaded files to gg drive folder: %s - Google Drive folder ID: %s'  % (d_folder, folder_id))
+    else: #folder
+        logging('Uploading files from %s to: %s ...'  % (path, d_folder))
         results = upload_folder(service, path, folder_id)
 
         if results == False:
-            print('Upload Failed.')
+            logging('Upload Failed.')
         else:
-            print('Complete uploaded folder to drive folder: "' + d_folder + '" - FolderID: ' + folder_id)
+            logging('Complete uploaded folder to drive folder: %s - FolderID: %s' % (d_folder, folder_id))
 
 
 def isdir(path, x):
@@ -134,7 +231,67 @@ def generate_space(lenght):
 
 def absolutePath(path):
     return os.path.abspath(path)
+    
+    
+def search_file_or_folder(drive_service, name, md5, f_flag):
+    """
+            Search file / folder with name and hash from specific path
+        """    
+    page_token = None
 
+    if f_flag == 0: #folder
+        while True:
+            try:
+                response = drive_service.files().list(q="mimeType='application/vnd.google-apps.folder'",
+                                                  spaces='drive',
+                                                  fields='nextPageToken, files(id, name)',
+                                                  pageToken=page_token).execute()
+            
+            except googleapiclient.errors.HttpError as err:
+            #Parse error message
+                message = ast.literal_eval(err.content)['error']['message']
+
+                if message == 'File not found: ':
+                    logging(message + name, 2)
+                    # Exit with stacktrace in case of other errors
+                    exit(1)
+                else:
+                    raise
+            for folder in response.get('files', []):
+                if folder['name'] == name:
+                    return folder['id']
+    elif f_flag == 1: #folder
+        while True:
+            try:
+                response = drive_service.files().list(q="mimeType != 'application/vnd.google-apps.folder' and name = '" + name + "'",
+                                                  spaces='drive',
+                                                  fields='files(id, name, md5Checksum)'
+                                                  ).execute()
+            
+            except googleapiclient.errors.HttpError as err:
+            #Parse error message
+                message = ast.literal_eval(err.content)['error']['message']
+
+                if message == 'File not found: ':
+                    logging(message + name, 2)
+                    # Exit with stacktrace in case of other errors
+                    exit(1)
+                else:
+                    raise
+            
+            filtered_files = [file for file in response.get('files', []) if 'md5Checksum' in file]
+            if len(filtered_files) > 0:
+                #print(filtered_files)
+                for item in filtered_files:
+                    if item['md5Checksum'] == str(md5):
+                        return item['md5Checksum']
+                logging("file are not yet exist on Google Drive (md5 not match), uploading new file...")
+                return ""
+            else:
+                logging("file are not yet exist on Google Drive, uploading...")
+                return ""
+    else:
+        return ""
 
 def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
     """
@@ -155,7 +312,7 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
             message = ast.literal_eval(err.content)['error']['message']
 
             if message == 'File not found: ':
-                print(message + d_folder)
+                logging(message + d_folder, 2)
                 # Exit with stacktrace in case of other errors
                 exit(1)
             else:
@@ -164,11 +321,11 @@ def get_folder_id(drive_service, parent_folder_id, d_folder, flag):
         for folder in response.get('files', []):
             if folder['name'] == d_folder:
                 if flag == 'p':
-                    print ("Parent Folder: " + folder['name'] + " : " + folder['id'])
+                    logging("Parent Folder: %s - id: %s" % (folder['name'], folder['id']))
                     return folder['id']
                     break
                 elif flag == 'c':
-                    print ("Destination Folder : " + folder['name'] + " : " + folder['id'])
+                    logging("Destination Folder : %s - id: %s" % (folder['name'], folder['id']))
                     return folder['id']
                     break
                 else:
@@ -215,22 +372,33 @@ def upload_file(service, file_dir, folder_id):
 
         response = None
 
-        print("uploading " + file1 + " ... 0%. ", end = "\r")
+        logging("uploading %s..." % file1)
         a = 0
         while response is None:
             status, response = request.next_chunk()
             if a == 1:
                 if status:
-                    print("uploading " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
+                    previous_progress_message = "Current: %s / Total: %s - %.2f%%" % (humanbytes(status.resumable_progress), humanbytes(status.total_size), status.progress() * 100)
+                    padding = ' ' * (len(previous_progress_message) + 2)  # Add 2 for the carriage return and space
+
+                    print(padding, end="\r")  # Clear the line
+                    print("Current: %s / Total: %s - %.2f%%" % (humanbytes(status.resumable_progress), humanbytes(status.total_size), status.progress() * 100), end="\r", flush=True)
                     a = 0
             elif a == 0:
 #                lenght = len(file1) + 11
 #                space = generate_space(lenght)
                 if status:
-                    print(str(datetime.now()) + "> " + "uploading " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
+                    previous_progress_message = "Current: %s / Total: %s - %.2f%%" % (humanbytes(status.resumable_progress), humanbytes(status.total_size), status.progress() * 100)
+                    padding = ' ' * (len(previous_progress_message) + 2)  # Add 2 for the carriage return and space
 
-        print(str(datetime.now()) + "> " + "uploading " + file1 + " ... 100%. ", end = "\r", flush=True)
-        print("")
+                    print(padding, end="\r")  # Clear the line
+                    print("Current: %s / Total: %s - %.2f%%" % (humanbytes(status.resumable_progress), humanbytes(status.total_size), status.progress() * 100), end="\r", flush=True)
+                    
+                    #print(str(datetime.now()) + "> " + "uploading " + file1 + " ... %d%%." % int(status.progress() * 100), end = "\r")
+
+        #print(str(datetime.now()) + "> " + "uploading " + file1 + " ... 100%. ", end = "\r", flush=True)
+        logging("File %s upload successfully!" % file1)
+        print("\n")
 #        print("Complete!")
 
 
@@ -239,11 +407,11 @@ def upload_folder(service, path, parent_folder_id):
     try:
         chdir(path)
     except OSError:
-        print(path + ' is missing, exiting...')
+        logging('%s is missing, exiting...' % path, 1)
         return False
 
     if not os.listdir(path):
-        print('Directory is empty, moving to next folder...')
+        logging('Directory is empty, moving to next folder...')
         return False
 
     arr = sort_dir(path)
@@ -253,28 +421,37 @@ def upload_folder(service, path, parent_folder_id):
 #        print(localpath)
 
         if os.path.isfile(localpath):
-            upload_file(service, localpath, parent_folder_id)
+            md5 = checkmd5(localpath)
+            logging("local md5 %s is %s" % (name, md5))
+            search_rs = search_file_or_folder(service, name, md5, 1)
+            logging("ggdr md5 %s is %s" % (name, search_rs))
+            if search_rs == "":
+                upload_file(service, localpath, parent_folder_id)
+            else:
+                logging("file already exist on GGDr, skipping... \n")
+                continue
+            
         elif os.path.isdir(localpath):
             print('\n')
-            print('Processing Directory: ' + '\x1b[6;30;42m' + localpath + '\x1b[0m')
+            logging('Processing Directory: %s' % localpath)
 
             FdID = get_folder_id(service, parent_folder_id, name, 'n')
             if FdID is not None:
-                print('Folder "' + name + '" already exist on Google Drive, checking files on ' + '\x1b[6;30;42m' + name  + '...' + '\x1b[0m')
-                print('checking files on: ' + '\x1b[6;30;42m' + name  + '...' + '\x1b[0m')
+                logging('Folder %s already exist on Google Drive' % name)
+                logging('checking files on: %s...' % name)
                 upload_folder(service, localpath, FdID)
             else:
-                print('Folder "' + name + '" dont exist on Google Drive, creating...')
+                logging('Folder %s dont exist on Google Drive, creating...' % name, 1)
                 n_FdID = create_folder(service, parent_folder_id, name)
 
                 if n_FdID is not None:
-                    print('Create Folder "' + name  + '" successfully, id: ' + n_FdID)
-                    print('checking files on: ' + '\x1b[6;30;42m' + name  + '...' + '\x1b[0m')
+                    logging('Create Folder %s successfully, id: %s' % (name, n_FdID))
+                    logging('checking files on: %s...' % name)
                     upload_folder(service, localpath, n_FdID)
                 else:
-                    print('Something definitely wrong while creating folder... Exiting...')
+                    logging('Something definitely wrong while creating folder... Exiting...', 2)
 
-    print('All files in "' + path  + '" uploaded successfully!')
+    logging('All files in %s uploaded successfully!' % path)
 
 
 
@@ -288,3 +465,16 @@ def create_folder(service, p_folder_id, folder_name):
     file = service.files().create(body=file_metadata,
                                   fields='id').execute()
     return file.get('id')
+
+
+def upload_mutiple_files(service, thread=4):
+    upload_list_size = len(upload_list)
+    if upload_list_size > 4:
+        for i in range(4):
+            thread = threading.Thread(target=upload_file, args=(service, upload_list[i]['path'], upload_list[i]['folder_id']))
+            threads.append(thread)
+            thread.start()
+        # Wait for all threads to finish    
+        for thread in threads:
+            thread.join()
+        
